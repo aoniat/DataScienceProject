@@ -1,0 +1,34 @@
+---
+title: "winerec"
+output: html_document
+---
+
+First let's see what columns we have and how many missing data points we have for each.
+```{r setup, include=FALSE}
+winemag <- read.csv("winemag-data-130k-v2.csv")
+wine<-winemag
+
+View(wine)
+colnames(wine)
+mymis<-c(0)
+for (i in colnames(wine)){
+mymis[i]<-length(which(wine[,i]=="" | is.na(wine[,i])))
+}
+mymis
+```
+
+Based on this, we'll probably use country, description, price, province and perhaps variety and winery for our recommendation system. So we'll filter out the ones that have a missing (or empty) 
+
+```{r}
+library(tidyverse)
+
+df<- wine %>% filter(!(country == "")) %>%
+  filter(!(description == "")) %>%
+  filter(!is.na(price)) %>%
+  filter(!(region_1 =="")) %>%
+  filter(!(title == ""))
+  
+
+
+```
+
