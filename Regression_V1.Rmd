@@ -1,0 +1,88 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Load files
+```{r}
+library(readr)
+library(tidyr)
+library(ggplot2)
+
+
+red <- read.table(file.choose("winequality-red.csv"), sep=";", header=T)
+head(red)
+  
+  
+white<- read.table(file.choose("winequality-white.csv"), sep=";", header=T) 
+head(white)
+
+
+```
+
+Check out initial correlation smooth curve fitted by Loess.
+```{r}
+for (i in 1:11){
+  scatter.smooth(x=red[,i], y=red$quality, xlab= colnames(red[,i]))}
+
+print("Interesting to look at 2,3,5,6,7, 8,10,11. Columns 8 and 10 look like relationship with quality may note be linear")
+
+for (i in 1:11){
+  scatter.smooth(x=white[,i], y=white$quality, xlab= colnames(white[,i]))
+}
+
+print("Interesting to look at 1,2,3,5,6,7, 8,10,11")
+
+```
+
+
+Checking assumptions for Linear Regression
+
+```{r}
+
+qualities<-colnames(white)
+
+
+#white with all covariates
+linearWhite<-lm(quality~ fixed.acidity+volatile.acidity+ citric.acid+ residual.sugar+ chlorides+ free.sulfur.dioxide + total.sulfur.dioxide+ density + pH +sulphates + alcohol+ quality, data= white)
+summary(linearWhite)
+
+#white removing covariates that are not significant
+linearWhite2<-lm(quality~ fixed.acidity+volatile.acidity+ residual.sugar+  free.sulfur.dioxide +  density + pH +sulphates + alcohol+ quality, data= white)
+summary(linearWhite2)
+
+
+
+# checking significance of coefficient- adjusted r^2 is higher with all than with removing
+linearRed<-lm(quality~ fixed.acidity+volatile.acidity+ citric.acid+ residual.sugar+ chlorides+ free.sulfur.dioxide + total.sulfur.dioxide+ density + pH +sulphates + alcohol+ quality, data= red)
+summary(linearRed)
+
+# remove not signitficant qualities adjusted r squared is lower
+linearRed2<-lm(quality~ fixed.acidity+volatile.acidity+  residual.sugar+ chlorides+ free.sulfur.dioxide+ density + pH +sulphates + alcohol+ quality, data= red)
+summary(linearRed2)
+
+#account for non-linearity
+
+
+
+
+
+
+```
+
+
+OTHER REGRESSION:
+```{r}
+
+```
+
+
+
+MACHINE LEARNING APPROACHES:
+
+```{r}
+
+
+
+```
+
