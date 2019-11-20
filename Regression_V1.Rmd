@@ -18,6 +18,19 @@ white<- read.table(file.choose("winequality-white.csv"), sep=";", header=T)
 head(white)
 
 
+wine_names <- read.table(file.choose("winequality.names"), sep=";", header=T)
+
+
+wine_names
+
+
+
+dim(white)
+
+dim(red)
+
+head(red)
+
 ```
 
 Check out initial correlation smooth curve fitted by Loess.
@@ -64,7 +77,7 @@ summary(linearRed2)
 #account for non-linearity
 
 
-
+#look at splines
 
 
 
@@ -81,8 +94,19 @@ OTHER REGRESSION:
 MACHINE LEARNING APPROACHES:
 
 ```{r}
+#GBM
+#want to find a threshhold
+
+#SPLINES
+
+#RANDOM FOREST
+
+#K-means? if the clusters are distinct
+```
 
 
-
+```{r}
+#NLP tag of words (adjective of word)
+#can otherwise create a list of all the possible adjectives you want
 ```
 
