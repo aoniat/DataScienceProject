@@ -12,9 +12,6 @@ library(shiny)
 library(tidyverse)
 library(RColorBrewer)
 library(dplyr)
-library(tmap)
-library(sf)
-library(spData)
 
 df<- read.csv("clean_dataset.csv")
 
@@ -31,7 +28,7 @@ ui <- fluidPage(
   ),
   fluidRow(
     column(width = 4, sliderInput("pricerange", label= "Select a price range for your wine",
-                                  min = 0, max = 250, value = c(15, 25))),
+                                  min = 0, max = 100, value = c(15, 25))),
     column(width = 4, textInput("description1", label = "Write a word that describes your wine",
                                 value = " "),
            fluidRow(
