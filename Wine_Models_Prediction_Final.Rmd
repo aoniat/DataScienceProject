@@ -2,6 +2,7 @@
 title: "Wine Recommendation Final, by Santiago, Erick, Dhruv, Aonia"
 output: html_document
 ---
+# All the data is on the github repository, name of contributing authors is in the title
 # Wine Recommendations: General Explanation
 
 ### Overview and Motivation: Provide an overview of the project goals and the motivation for it. Consider that this will be read by people who did not see your project proposal.
