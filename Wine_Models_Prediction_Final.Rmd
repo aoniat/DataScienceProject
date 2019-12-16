@@ -1,0 +1,641 @@
+---
+title: "Wine Recommendation Final, by Santiago, Erick, Dhruv, Aonia"
+output: html_document
+---
+# Wine Recommendations: General Explanation
+
+### Overview and Motivation: Provide an overview of the project goals and the motivation for it. Consider that this will be read by people who did not see your project proposal.
+
+Wine making is both a science and an art. Chemical characteristics affect the taste and can make a wine good or bad. However, there is a poetic side to wine: each wine can have notes and fragrances that can remind us of wood, fruits, raspberry, licorice... and this is where individual taste and a specific mood comes into play.Our project aimed to explore both aspects: the chemical one by building a model to predict wine quality from chemical properties like acidity, phenols, etc.; and the poetic one, by creating a recommendation system for any wine enthusiast to be able to search for wines with certain taste or fragrance notes.
+
+### Related Work: Anything that inspired you, such as a paper, a web site, or something we discussed in class.
+We wanted to explore predictive models, as well as natural language processing. We were familiar with apps like Vivino that can recommend wine, and wanted to do a variation on that, which also takes into consideration the chemical composition that makes a good wine.
+
+### Initial Questions: What questions are you trying to answer? How did these questions evolve over the course of the project? What new questions did you consider in the course of your analysis?
+
+What makes a good wine? This question drove the bulk of our analyses, eventually leading us to utilize both ordinal logistic regressions and random forests for predictive analysis of the wine qualities. Important facets of a wine were determined through traditional regression and machine learning techniques, and were thus incorporated into our final results for what makes a wine great. This question remained constant throughout our various analyses.
+
+For the wine recommender idea, our main goal was to create a Shiny app where a user could specify a price range, and some keywords for the wine description. Initially we thought of allowing the user to specify a score, but then decided that we would just display the wines with the highest scores: everything else being equal, who wouldn't a priori prefer a wine with a higher score?
+There were two changes that we decided during the course of the project: first we had planned to display some words from the description according to their frequency, but ended up doing something else instead. We thought it would be interesting to show the relative frequency of wines meeting the user criteria by country, so we added this as a visualization.
+
+### Data: Source, scraping method, cleanup, etc.
+We found the data set in a Kaggle repository. Wehad to download it and clean it. The cleanup consisted  of removing rows with missing values for variables we wanted to use. The remaining data set after cleaning and wrangling the data was still large (>7k) giving us power to both determine what makes a good wine and recommend the wine data. To reduce the size of the recommendation data set, we also decided to keep only wines with a score above a certain number (88), since we'll only show the top-scoring wines. Similarly, data cleaning involved creating new categorical outcomes for wine quality based on already available data sets, with distinct cutoffs for each "bin" of wine quality (low, average, high).
+
+
+### Exploratory Analysis: What visualizations did you use to look at your data in different ways? What are the different statistical methods you considered? Justify the decisions you made, and show any major changes to your ideas. How did you reach these conclusions?
+
+Exploratory analysis for the predictive modeling began with linear regressions, but when robustness checks demonstrated the failure of certain assumptions, we moved to ordinal regression and random forests. We used predicted probability charts and plots, regression and analysis outputs, and density plots among other visualizations to assess the data and different ways and approach it from different angles. These are explained in a lot of detail in the R-markdown files as well. 
+
+For the wine recommender, we did data processing and Natural Language Processing (NLP). The main thing was checking the data missingness to see if excluding wines that had any of our fields of interest missing (score, price, description, wine name and country) would result in too many total exclusions. We did initially consider adding a filter by region, but we noticed there were too many regions to include in the filter, so we ended up not using it or displaying that information, except for what is available in the wine name.We also did natural language processing and one of the things that we need to check in that case is if the word we search is used in a negative way. In our case however, it was very unlikely that a keyword would be mentioned if it had to be taken in a negative way. We checked a few results and saw that there were almost no instances of negative results applied to important words."
+
+### Final Analysis: What did you learn about the data? How did you answer the questions? How can you justify your answers?
+
+
+We were curious to learn about hwat makes a good wine, and were able to learn about different models, their assumptions, as well as their strengths and weaknesses in the process. Decision trees for example are often used as decision support, where each node is a test (e.g. is alcohol proof below or abve 10%), and each branch represents the outcocme of this test. To construct a  random forests we used 500 trees  per forest, with trees created by randomly choose three features of the wine (e.g. pH, sugar levels and alcohol proof) . Each tree in the forest will classify the wine as good or bad quality, and the most common predictiton of the trees acriss the forest is the classificatiton which will be assigned.The error rate (called out of bag error), is estimated by testing our tree decisions on the samples which were not included to create the decision trees.We were able to correctly classify good red wine with 17% error rate and good white wine with a 9% error rate. This means we are correctly classifying a good white wine as good white wine more than 90% of the time in our testing set. This is far better predictive ability than the original simple linear regression which explained only 27% of variability for white wine and 35% for red wine.
+
+However overall, we found similar results for both the ordinal logistic regression and random forests, with alcohol, total sulfur dioxide, and chlorides (among a few other facets) taking precedence over the other covariates included in our data set. Our robustness checks and the satisfaction of assumptions in our analyses justify the answers obtained from the models.
+
+It was hence very interersting to read into the relationship between quantittative findings, and what these meant that one should watch out for when smelling and tasting wines, for example that sulfur dioxide gives a citrus or smoky taste, and those are linked to better wine quality. Linking the chemical compositions to our recommendation system was also fun as the researcch regarding smell and chemical composition allowed us to make recommendations on the basis of what makes a good wine as well as eprsonal preferencec.
+
+In addition, we learned that our recommendation system works. By playing with it, we found interesting things, for example: a full 8% of Canadian wines are described as "aromatic". This is almost double the percentage of any of the other countries in our data set. Also, a larger proportion of french wines (15%) tend to be "dry".
+
+# Wine Recommendations: Analyses, explained
+
+### Setting up the data
+In this chunk, we load necessary packages and create the three categories of wine for both the red and white data sets:
+```{r echo = T, results = 'hide'}
+#this results in packages only being installed if packages not yet downloaded on oocmputer
+list.of.packages <- c("readr", "foreign","MASS","VGAM","lmtest","ResourceSelection","generalhoslem","ggthemes","ggpubr","randomForest","caTools")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+```
+
+```{r echo = T, results = 'hide'}
+#knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(tidyr)
+library(foreign)
+library(ggplot2)
+library(MASS)
+library(VGAM)
+library(lmtest)
+library(ResourceSelection)
+library(dplyr)
+library(generalhoslem)
+#library(ordinal)
+library(ggthemes)
+library(ggpubr)
+library(randomForest)
+require(caTools)
+
+```
+
+```{r}
+red <- read.table("./winequality-red.csv", sep=";", header=T)
+white<- read.table("./winequality-white.csv", sep=";", header=T)
+wine_names <- read.table("./winequality.names", sep=";", header=T)
+
+red <- red %>% mutate(qualcat = ifelse(quality < 5, 1,
+                                       ifelse(quality >= 5 & quality < 7, 2, 
+                                              ifelse(quality >= 7, 3, 0))))
+
+white <- white %>% mutate(qualcat = ifelse(quality < 5, 1,
+                                       ifelse(quality >= 5 & quality < 7, 2, 
+                                              ifelse(quality >= 7, 3, 0))))
+dim(white)
+dim(red)
+
+head(red)
+
+attributes=names(red)
+attributes
+```
+
+# Linear Regression
+
+We are looking at the composition of 4,898 white wines and 1,599 red wines to determine which chemical compounds determine good quality in wine and also to investigate whether these are different in red wine and white wine. To do this we look at a variety of modeling approaches starting from similar linear regression, progressing to ordinal regression and finally implementing machine learning approaches such as random forests to teach you a secret or two about good wine.
+
+Check out initial correlation smooth curve fitted by Loess, accompanied by more beautiful ggplots looking at relationship between various aspects of chemical composition and quality of wine. 
+
+ 
+```{r}
+
+#Loess curve relatinoship
+#for (i in 1:11){
+ # scatter.smooth(x=red[,i], y=red$quality, xlab= colnames(red[,i]))}
+
+
+ggarrange(red %>%ggplot(aes(fixed.acidity,quality))+ geom_point()+ geom_smooth(method = "lm"),
+red %>%ggplot(aes(volatile.acidity,quality))+ geom_point()+ geom_smooth(method = "lm"),
+red %>%ggplot(aes(citric.acid,quality))+ geom_point()+ geom_smooth(method = "lm"),
+red %>%ggplot(aes(chlorides,quality))+ geom_point()+ geom_smooth(method = "lm"),
+red %>%ggplot(aes(free.sulfur.dioxide,quality))+ geom_point()+ geom_smooth(method = "lm"),
+red %>%ggplot(aes(total.sulfur.dioxide,quality))+ geom_point()+ geom_smooth(method = "lm"),
+red %>%ggplot(aes(density,quality))+ geom_point()+ geom_smooth(method = "lm"),
+red %>%ggplot(aes(pH,quality))+ geom_point()+ geom_smooth(method = "lm"),
+red %>%ggplot(aes(sulphates,quality))+ geom_point()+ geom_smooth(method = "lm"),
+red %>%ggplot(aes(alcohol,quality))+ geom_point()+ geom_smooth(method = "lm"))
+
+
+ggarrange(red %>%ggplot(aes(fixed.acidity))+ geom_histogram(colour='black')+theme_economist(),
+red %>%ggplot(aes(volatile.acidity))+ geom_histogram(colour='black')+theme_economist(),
+red %>%ggplot(aes(citric.acid))+ geom_histogram(colour='black')+theme_economist(),
+red %>%ggplot(aes(chlorides))+ geom_histogram(colour='black')+theme_economist(),
+red %>%ggplot(aes(free.sulfur.dioxide))+ geom_histogram(colour='black')+theme_economist(),
+red %>%ggplot(aes(total.sulfur.dioxide))+geom_histogram(colour='black')+theme_economist(),
+red %>%ggplot(aes(density))+ geom_histogram(colour='black')+theme_economist(),
+red %>%ggplot(aes(pH))+ geom_histogram(colour='black')+theme_economist(),
+red %>%ggplot(aes(sulphates))+ geom_histogram(colour='black')+theme_economist(),
+red %>%ggplot(aes(alcohol))+ geom_histogram(colour='black')+theme_economist(),
+red %>%ggplot(aes(quality))+ geom_histogram(colour='black')+theme_economist())
+
+
+
+
+#print("Interesting to look at 2,3,5,6,7, 8,10,11. Columns 8 and 10 look like relationship with quality may note be linear")
+
+```
+
+White wine relationship between chemical composition and quality, and distribution of the chemical composition for the wines.
+```{r}
+#can see loess as well
+#for (i in 1:11){
+ # scatter.smooth(x=white[,i], y=white$quality, xlab= colnames(white[,i]))
+#}
+
+#print("Interesting to look at 1,2,3,5,6,7, 8,10,11 as relation")
+
+
+
+ggarrange(white %>%ggplot(aes(fixed.acidity,quality))+ geom_point()+ geom_smooth(method = "lm")+theme_economist(),
+white %>%ggplot(aes(volatile.acidity,quality))+ geom_point()+ geom_smooth(method = "lm")+theme_economist(),
+white %>%ggplot(aes(citric.acid,quality))+ geom_point()+ geom_smooth(method = "lm")+theme_economist(),
+white %>%ggplot(aes(chlorides,quality))+ geom_point()+ geom_smooth(method = "lm")+theme_economist(),
+white %>%ggplot(aes(free.sulfur.dioxide,quality))+ geom_point()+ geom_smooth(method = "lm")+theme_economist(),
+white %>%ggplot(aes(total.sulfur.dioxide,quality))+ geom_point()+ geom_smooth(method = "lm")+theme_economist(),
+white %>%ggplot(aes(density,quality))+ geom_point()+ geom_smooth(method = "lm")+theme_economist(),
+white %>%ggplot(aes(pH,quality))+ geom_point()+ geom_smooth(method = "lm")+theme_economist(),
+white %>%ggplot(aes(sulphates,quality))+ geom_point()+ geom_smooth(method = "lm")+theme_economist(),
+white %>%ggplot(aes(alcohol,quality))+ geom_point()+ geom_smooth(method = "lm")+theme_economist())
+
+
+ggarrange(white %>%ggplot(aes(fixed.acidity))+ geom_histogram(colour='black')+theme_economist(),
+white %>%ggplot(aes(volatile.acidity))+ geom_histogram(colour='black')+theme_economist(),
+white %>%ggplot(aes(citric.acid))+ geom_histogram(colour='black')+theme_economist(),
+white %>%ggplot(aes(chlorides))+ geom_histogram(colour='black')+theme_economist(),
+white %>%ggplot(aes(free.sulfur.dioxide))+ geom_histogram(colour='black')+theme_economist(),
+white %>%ggplot(aes(total.sulfur.dioxide))+geom_histogram(colour='black')+theme_economist(),
+white %>%ggplot(aes(density))+ geom_histogram(colour='black')+theme_economist(),
+white %>%ggplot(aes(pH))+ geom_histogram(colour='black')+theme_economist(),
+white %>%ggplot(aes(sulphates))+ geom_histogram(colour='black')+theme_economist(),
+white %>%ggplot(aes(alcohol))+ geom_histogram(colour='black')+theme_economist(),
+white %>%ggplot(aes(quality))+ geom_histogram(colour='black')+theme_economist())
+
+
+```
+
+We assume following characteristics about our data and model when we use a linear regression to model quality. 
+•Firstly, that the average of Y(quality) is a linear function of X(chemical composition). We can already see from the plots above that the relationship is not linear for all cases and has quadratic and other relationship indicating linear regression is probably only interesting as an initial model
+• The variability of Y(quality) about the mean value is equal for all x values, again chemical composition.
+• The distribution of Y(quality) about its mean(average quality) is normally distributed this was checked via histograms or qq plots, again- this did not hold true for the predictors.
+• All responses are independent, which for factors like density, is not true as alcohol % and sugar levels affect density.
+
+
+
+
+```{r}
+
+qualities<-colnames(white)
+
+
+#white with all covariates
+linearWhite<-lm(quality~ fixed.acidity+volatile.acidity+ citric.acid+ residual.sugar+ chlorides+ free.sulfur.dioxide + total.sulfur.dioxide + pH +sulphates + alcohol, data= white)
+summary(linearWhite)
+
+#white removing covariates that are not significant
+linearWhite2<-lm(quality~ fixed.acidity+volatile.acidity+ residual.sugar+  free.sulfur.dioxide  + pH +sulphates + alcohol, data= white)
+summary(linearWhite2)
+
+
+
+# checking significance of coefficient- adjusted r^2 is higher with all than with removing
+linearRed<-lm(quality~ fixed.acidity+volatile.acidity+ citric.acid+ residual.sugar+ chlorides+ free.sulfur.dioxide + total.sulfur.dioxide + pH +sulphates + alcohol, data= red)
+summary(linearRed)
+
+# remove not signitficant qualities adjusted r squared is lower
+linearRed2<-lm(quality~ fixed.acidity+volatile.acidity+  residual.sugar+ chlorides+ free.sulfur.dioxide+  pH +sulphates + alcohol, data= red)
+summary(linearRed2)
+```
+
+Model selection:density of the wine is a product of sugar and alcohol concentrations, thus acting as a confounder due to correlation, and thus removed it from our model.
+
+It is worth reiterating that we can only use linear regression when all the LINE requirements, which were previously outlines hold true for the data set. We saw from the original plots where we were comparing the relationship between wine features and quality is not linear. You can also remove the hash tag in the R-markdown to see this more clearly with LOESS curves to show the patterns. 
+
+As the assumptions do not hold, simple linear regression is not a good model to predict which properties of the wine predict its quality. Furthermore, we can also see that linear regression only explains low levels of quality variability around 27% for red wines and about 35% for white wines. For red wine all chemical properties except for citric acid levels are significant. Even when we remove it from the model, the adjusted R2 stays low.
+
+For the red wines, fixed acidity, citric acid levels and residual sugar levels were not associated with wine quality. For red wines, the chemical compositions were able to explain 35% of variability before and after removing these chemical features. To see whether qualities are positively or negatively correlated with wine quality, you can look at the estimate, if it is positive, then it is positively correlated with quality.
+
+
+# Ordinal Regressions
+
+### Running the Regressions
+We ran a series of ordinal logistic regressions with the package vglm. We ran four ordinal logistic regressions to examine differences between the using 3 outcome categories for quality, and the full 7 outcome categories. We decided to use the coarsened categories (3) because we had more data per level and could thus categorize the wines better. We used an AIC comparison for the models, and selected the reduced model omod2 because it had a slightly lower AIC than the full model. Anova analysis confirmed that the extra variables in the full model do not contribute significant information, so this reinforced our decision to use the reduced model. We performed the same set of analyses on white wines, as well.
+```{r}
+omod1 = vglm(qualcat ~ fixed.acidity+volatile.acidity+ citric.acid+ residual.sugar+ chlorides+ free.sulfur.dioxide + total.sulfur.dioxide+ pH +sulphates + alcohol, 
+             cumulative(parallel=TRUE, reverse=FALSE), data=red)
+summary(omod1)
+
+omod2 = vglm(qualcat ~ volatile.acidity+chlorides+sulphates + alcohol + pH, 
+             cumulative(parallel=TRUE, reverse=FALSE), data=red)
+summary(omod2)
+
+omod3 = vglm(quality ~ fixed.acidity+volatile.acidity+ citric.acid+ residual.sugar+ chlorides+ free.sulfur.dioxide + total.sulfur.dioxide+ density + pH +sulphates + alcohol, 
+             cumulative(parallel=TRUE, reverse=FALSE), data=red)
+summary(omod3)
+
+omod4 = vglm(quality ~ volatile.acidity+chlorides+sulphates + alcohol+ total.sulfur.dioxide, 
+             cumulative(parallel=TRUE, reverse=FALSE), data=red)
+summary(omod4)
+#Comparing AICs for ordinal logistic regression of qualcat (3 categories) vs quality (5 in the case of red)
+```
+
+We selected models based on lower AICs because the Akaike Information Criterion is a relative measure of model performance that takes into account both parsimony and goodness of fit. Penalizing the number of parameters included rewards parsimony, and thus helps reduce overfitting. Therefore, the AIC is a relative, useful measure of model performance, with lower values indicating the better model.
+```{r}
+AICvlm(omod1, corrected = FALSE)
+AICvlm(omod2, corrected = FALSE)
+AICvlm(omod3, corrected = FALSE)
+AICvlm(omod4, corrected = FALSE)
+
+anova.vglm(omod1, omod2, type = "I")
+waldtest(omod1, omod2)
+
+#White wines
+
+omodww1 = vglm(qualcat ~ fixed.acidity+volatile.acidity+ citric.acid+ residual.sugar+ chlorides+ free.sulfur.dioxide + total.sulfur.dioxide + pH +sulphates + alcohol, 
+             cumulative(parallel=TRUE, reverse=FALSE), data=white)
+summary(omodww1)
+
+omodww2 = vglm(qualcat ~ volatile.acidity+chlorides+sulphates + alcohol + pH, 
+             cumulative(parallel=TRUE, reverse=FALSE), data=white)
+summary(omodww2)
+
+omodww3 = vglm(quality ~ fixed.acidity+volatile.acidity+ citric.acid+ residual.sugar+ chlorides+ free.sulfur.dioxide + total.sulfur.dioxide+ density + pH +sulphates + alcohol, 
+             cumulative(parallel=TRUE, reverse=FALSE), data=white)
+summary(omodww3)
+
+omodww4 = vglm(quality ~ volatile.acidity+chlorides+sulphates + alcohol+ total.sulfur.dioxide, 
+             cumulative(parallel=TRUE, reverse=FALSE), data=white)
+summary(omodww4)
+
+omodww5 = vglm(qualcat ~ volatile.acidity+sulphates + alcohol+ total.sulfur.dioxide, 
+             cumulative(parallel=TRUE, reverse=FALSE), data=white)
+summary(omodww5)
+#Comparing AICs for ordinal logistic regression of qualcat (3 categories) vs quality (7 in the case of white)
+AICvlm(omodww1, corrected = FALSE)
+AICvlm(omodww2, corrected = FALSE)
+AICvlm(omodww3, corrected = FALSE)
+AICvlm(omodww4, corrected = FALSE)
+AICvlm(omodww5, corrected = FALSE)
+```
+
+### Checking Assumptions
+We checked the proportional odds assumption for the red wine model here. As there was significant overlap between the confidence intervals and the coefficients were similar, we may state that the proportional odds assumptions is loosely satisfied in this case. This robustness check allowed us to proceed and conclude that this model was sufficient for predicting red wine quality.
+```{r}
+red <- red %>% mutate(bin3 = ifelse(qualcat == 3, 1, 0))
+red <- red %>% mutate(bin23 = ifelse(qualcat == 1, 0, 1))
+
+lmod1 <- glm(bin3 ~ volatile.acidity+chlorides+sulphates + alcohol + pH, family = binomial(), data = red)
+lmod2 <- glm(bin23 ~ volatile.acidity+chlorides+sulphates + alcohol + pH, family = binomial(), data = red)
+
+coef(lmod1)
+coef(lmod2)
+confint(lmod1)
+confint(lmod2)
+```
+
+The exact same analysis was conducted for white wines. Here, the proportional odds assumption was not satisfied for the variable chlorides, so we left it out for our final model to ensure that proportional odds were satisfied for the model.
+```{r}
+white <- white %>% mutate(bin3 = ifelse(qualcat == 3, 1, 0))
+white <- white %>% mutate(bin23 = ifelse(qualcat == 1, 0, 1))
+
+lmod3 <- glm(bin3 ~ volatile.acidity+sulphates + alcohol + pH, family = binomial(), data = white)
+lmod4 <- glm(bin23 ~ volatile.acidity+sulphates + alcohol + pH, family = binomial(), data = white)
+
+coef(lmod3)
+coef(lmod4)
+confint(lmod3)
+confint(lmod4)
+```
+
+Unfortunately, our ANOVA analysis confirms that we lose information by excluding chlorides, but to formulate and adequate predictive model, we would have to implement a partial proportional odds model, but coefficients would be more difficult to interpret and the methods are beyond the scope of this research project. It is likely that implementing the PPO model would decrease our misclassification rates and our AICs, however.
+```{r}
+anova.vglm(omodww5, omodww2, type = "I")
+```
+
+### Graphing predicted probabilities
+Here we graph the predicted probabilities of red and white across the three qualities. The graphs below detail the relationship between our covariates and the three wine quality levels. As quanitity of chemical property increases over the x axis, we can see how this affects predicted probability on the y axis. For example with low volatile acicdity we can predict good with the higher confidence than when the level increases.And we can predict high quality wine best, when alcohol levels are high. Overall, unfortunately, predictions are best for medium quality wine, as was also the case for the random forest analysis when we initially lookede at three categories. Predictive ability is not particularly great for the good quality wines, wherefore we ended up choosing random forests for only good and bad quality cut-offs, as you will see later. 
+```{r}
+for (i in c(2,5,9,10,11)){
+  print(red %>% ggplot(aes_string(x=red[,i]))+
+  geom_smooth(aes(y=fitted(omod2)[,1], color = "Low quality"), se = FALSE, method = 'loess')+
+  geom_smooth(aes(y=fitted(omod2)[,2], color = "Medium quality"), se = FALSE,  method = 'loess')+
+  geom_smooth(aes(y=fitted(omod2)[,3], color = "High quality"), se = FALSE,  method = 'loess')+
+  xlab(colnames(red)[i])+
+  ylab("Predicted Probability")+
+  theme(legend.title = element_blank()))
+}
+```
+
+```{r}
+for (i in c(2,9,10,11)){
+  print(white %>% ggplot(aes(x=white[,i]))+
+  geom_smooth(aes(y=fitted(omodww2)[,1], color = "Low quality"), se = FALSE, method = 'loess')+
+  geom_smooth(aes(y=fitted(omodww2)[,2], color = "Medium quality"), se = FALSE,  method = 'loess')+
+  geom_smooth(aes(y=fitted(omodww2)[,3], color = "High quality"), se = FALSE,  method = 'loess')+
+  xlab(colnames(white)[i])+
+  ylab("Predicted Probability")+
+  theme(legend.title = element_blank()))
+}
+```
+
+This chunk was purely for generating graphics for the website.
+```{r}
+#ggsave("volatred.png", width = 10, height = 8, units = "cm", dpi = 320)
+
+```
+
+### Monte Carlo for Average misclassification rates
+
+Here we examined our misclassification rates for both red and white wines. We ran Monte Carlo simulations of 1000 iterations, each to get a more specific average misclassification rate for the two models.
+```{r}
+#Training and test data, Monte Carlo Red
+monteRed <- vector("numeric", length = 1000)
+for (i in 1:1000){
+  set.seed(sample(1:99999, 1, replace = T))
+trainingRows <- sample(1:nrow(red), 0.7 * nrow(red))
+trainingData <- red[trainingRows, ]
+testData <- red[-trainingRows, ]
+
+options(contrasts = c("contr.treatment", "contr.poly"))
+polrMod <- polr(as.factor(qualcat) ~ volatile.acidity+chlorides+sulphates + alcohol + pH, data=trainingData)
+
+predictedClass <- predict(polrMod, testData)
+predictedScores <- predict(polrMod, testData, type="p")
+
+monteRed[i] <- (mean(as.character(testData$qualcat) != as.character(predictedClass)))
+}
+
+summary(monteRed)
+table(testData$qualcat, predictedClass)
+```
+
+
+```{r}
+#Training and test data, Monte Carlo White
+monteWhite <- vector("numeric", length = 1000)
+for (i in 1:1000){
+  set.seed(sample(1:99999, 1, replace = T))
+trainingRows <- sample(1:nrow(white), 0.7 * nrow(white))
+trainingData <- white[trainingRows, ]
+testData <- white[-trainingRows, ]
+
+options(contrasts = c("contr.treatment", "contr.poly"))
+polrMod <- polr(as.factor(qualcat) ~ volatile.acidity+sulphates + alcohol + pH, data=trainingData)
+
+predictedClass <- predict(polrMod, testData)
+predictedScores <- predict(polrMod, testData, type="p")
+
+monteWhite[i] <- (mean(as.character(testData$qualcat) != as.character(predictedClass)))
+}
+
+summary(monteWhite)
+table(testData$qualcat, predictedClass)
+```
+
+Finally, we looked at the densities of the Monte carol simulation outputs and look at the proportion of high, average, and low quality wine observations for each data set to assess another reason for why our model performs so poorly for high and low quality wines. Ultimately, it was likely a combination of lacking a large number of predictors and low representation of high and low quality wines in each data set that led to high misclassification rates.
+```{r}
+ggplot()+
+  geom_density(aes(x=monteWhite), fill = "steel blue")
+
+ggplot()+
+  geom_density(aes(x=monteRed), fill = "steel blue")
+
+tableWhites <- table(white$qualcat)
+tableReds <- table(red$qualcat)
+tableWhites
+tableReds
+
+as.vector(tableWhites)
+proptableWhites = c(tableWhites[1]/sum(tableWhites), tableWhites[2]/sum(tableWhites), tableWhites[3]/sum(tableWhites))
+
+as.vector(tableReds)
+proptableReds = c(tableReds[1]/sum(tableReds), tableReds[2]/sum(tableReds), tableReds[3]/sum(tableReds))
+
+proptableReds
+proptableWhites
+```
+
+
+# MACHINE LEARNING APPROACHES
+
+
+##RANDOM FOREST
+Summary:
+Decision trees are often used as decision support, where each node is a test (e.g. is alcohol proof below or above 10%), and each branch represents the outcome of this test. To construct a  random forests we used 500 trees  per forest, with trees created by randomly choose three features of the wine (e.g. pH, sugar levels and alcohol proof) . Each tree in the forest will classify the wine as good or bad quality, and the most common prediction of the trees across the forest is the classification which will be assigned.The error rate (called out of bag error), is estimated by testing our tree decisions on the samples which were not included to create the decision trees.
+
+We were able to correctly classify good red wine  as good red wine with 17% error rate and good white wine as good white wine with a 9% error rate. This means we are correctly classifying a good white wine as good white wine more than 90% of the time in our testing set.One e can have the total error by combining the error rates for both good quality and bad quality prediction, giving you the averages displayed next to the random forest calculations. With these you can calculate both sensitivity and specificity.
+
+
+load packages
+```{r}
+library(randomForest)
+require(caTools)
+library(tidyr)
+library(dplyr)
+```
+
+
+At first we tried doing random forest with three quality groups we were trying to predict. Bad quality wine, which was rated as quality points being 4 or less, average quality wine, which was rated 5 or 6 and good quality wine which was seven and above. However the predictive values were very poor, with out of bag error predictions up to 60% for categories. The out of bag error is determined when applying our tree on the samples which were not included to create the decision tree. We hence decided to instead divide the wine categories into good wine or bad wine with a cut-off of 6 and above (as it is above average)  as good. This lowers the out of box error to only 17%. This also makes sense as we are generally not interested in whether the wine we are buying is bad or average quality. Instead, what want to know whether the wine we are buying is good or bad quality. 
+
+The code which was orgiginally used to divide quality into bad, average and good have been the code below to divide it up into three categories, but we decided for two
+ 
+red_high_qual$quality[red_high_qual$quality<=5]<-0
+red_high_qual$quality[red_high_qual$quality>5& red$quality<=6]<-1
+red_high_qual$quality[red_high_qual$quality>6]<-2
+
+Summary reds:
+We  analysed over 1,500 red wines. For red wine, The most important predictor is  also alcohol percentage, where higher alcohol levels are associated with higher quality ratings.  The second most important predictor is sulfate levels. Our analysis found higher levels of sulfates are associated with higher quality scores. Wine labels in the US are required to have sulfite information on the label. Interestingly, wines that are less acidic require more sulfite to preserve, and sweeter wines tend to have more sulfites. Feel free to go to our website (Wine recommendation station) to look at some recommendations with these key words (e.g. sweetness is an indicator of sulfite levels) on our wine recommendation page. 
+
+
+
+
+```{r}
+#Come up with cut-off for when wine is good
+#greater than 6=  good wine
+library(ggplot2)
+
+#red%>% filter(quality>=6)#around 855 good quality wines
+
+red_high_qual<- red#reassinging the same values tot new name in case something goes wrong
+
+red_high_qual$quality[red_high_qual$quality<6]<-0#zero is bad /below average
+red_high_qual$quality[red_high_qual$quality>=6]<-1#1 is good/above average
+
+
+#summary(red_high_qual)
+red_high_qual$quality<-as.factor(red_high_qual$quality)#transforming into factor
+
+#can see wiith summary comman that it quality catetgories are now one and zero
+summary(red_high_qual)#can look at ss
+
+#check that they are in the right data class 
+sapply(red_high_qual, class)
+
+#make good vs bad quality a factor
+red_high_qual<- transform(red_high_qual, quality= as.factor(quality))# change quality to category eithere good or bad.
+
+
+#check for na's, no Na's
+#colSums(is.na(red_high_qual))
+#summary(red_high_qual)
+
+
+
+```
+
+We were initially deciding between a cut-off of six for good wine and a cutoff of seven. We ultimately chose six because that is above average. This gives us 855 good quality red wines that we either use to train or test our random forest with.
+
+We make sure to have both training and testing data, to avoid over-fitting. We use 75% of the wines to train and 25% to test our random forests and see how well our models can predict a good quality wine from a bad one, when the chemical information is available.
+
+```{r}
+#set a portion of data aside
+sample_red= sample.split(red_high_qual$quality, SplitRatio = 0.75)#75% traiinnig
+train_red= subset(red_high_qual, sample_red ==TRUE)
+test_red= subset(red_high_qual, sample_red ==FALSE)#25% testing
+
+#Below you ccan see the distribution for number of wines in testing and wines in training set
+dim(train_red)
+dim(test_red)
+
+```
+As you can see we use 1,199 red wines to train and 400 red wines to test our prediction with random forest.
+
+With random forest  we want to predict quality of the red wine, with the below parameters. Ntree parameters defines the numbers of trees to be generated, ideally want to generate them so that the out of bucket estimate of error rate is low( we build it with 500 trees, which is the default but also leads to high  prediction accuracy in our case). The Mtry parameter indicates how many features are randomly chosen per tree (we chose three) to determine quality. We also indicate that we want to calculate the importance parameter allows us to calculate the importance of the variable in predicting the variable later on.
+
+```{r}
+rf_red <- randomForest( quality ~ fixed.acidity+volatile.acidity+ citric.acid+ residual.sugar+ chlorides + free.sulfur.dioxide + total.sulfur.dioxide + pH +sulphates + alcohol, data= train_red,  importance=T) 
+
+```
+We can see below that the number of trees are 500, for which it randomly chooses three of the wine characteristics to determine the quality. The out-of-bag samples (wine samples left out), will be checked to see how they are classified giving us the below predictions.
+
+
+```{r}
+rf_red
+```
+The above output is how our classifier determines quality of the wine. We can see that we correctly classified 529/641 wines as good quality when they were rated as good quality wines. The error error rate of 17%, is for the 118 wines which were rated good were judged to not be good in quality. Furthermore it correctly predicted that 447/558 wines were rated as bad (quality score below 6).
+
+
+
+```{r}
+
+#open jpeg file
+jpeg("red_features.jpg", width=700, height=350)
+
+varImpPlot(rf_red,main="Features for predicting good red wine")
+
+
+#close file
+dev.off()
+varImpPlot(rf_red, main="Features for predicting good white wine")
+
+
+```
+
+
+In red wine we also see that higher levels of alcohol are indicate of quality scores. Increases in sulfates increased quality scores  for one. Low levels of volatile acidity were preferred, a good reminder to give your red wine a sniff, when you are ordering by the glass. If it smells too sour, a bit like vinegar you are probably better off ordering a different one. Total sulfur dioxide levels are preferred.Finally high levels of chlorides were indicative of low quality scores.
+
+Information about the two feature importance is determined. The first feature (Mean Decrease Accuracy),  reflects the decrease in performance that would occur if we would not have information on this variable. Hence the alcohol %, level of sulfates, volatile acidity and total sulfur dioxide are important in predicting wine quality.
+
+The second graph is the Mean Decrease Gini. The importance of each of the chemical compositions for prediction of quality is determined by how much the Mean squared error when this chemical feature is used to accuracy of the prediction depends on this feature.
+
+
+We now want to see how well the prediction works for our testing data. When using random forest to predict whether the wine will be classified as good quality or bad quality, the prediction is made by the mean prediction of all the trees in the random forest.
+
+```{r}
+pred_red= predict(rf_red, test_red[-12])
+cm_red= table(test_red[,12], pred_red)
+
+cm_red
+
+
+```
+
+We can hence see that we correctly predict 168/214 wines of good quality as good quality wines based on the features and correctly guessed 151/186 as bad quality when bad quality.
+
+
+------------------------
+WHITE WINE RANDOM FOREST
+
+We analyzed the chemical composition of nearly 5,000 white wines to determine what chemical features are the best predictors of quality. The most important predictor is alcohol percentage, where higher alcohol levels are associated with higher quality ratings. Alcohol % can be found on the wine menu or on the back of the wine bottle when you are shopping.The second most important  predictor is volatile acidity where lower levels are indicative of higher quality. The most common volatile acid in wine is acetic acid, which smells and tastes like vinegar.The third most important predictor is sulfur dioxide, when smelling your wine this can smell smokey , citrusy or like coffee . Feel free to use these  descriptors on our wine recommendation page. Now to the code:
+
+
+```{r}
+#white%>% filter(quality>=6)#around 855 good quality wines
+
+white_high_qual<- white
+ 
+white_high_qual$quality[white$quality<6]<-0
+white_high_qual$quality[white$quality>=6]<-1
+
+
+
+head(white_high_qual)
+summary(white_high_qual)
+
+#check that they are in the right data class
+sapply(white_high_qual, class)
+
+#make good vs bad quality a factor
+white_high_qual<- transform(white_high_qual, quality= as.factor(quality))
+
+#check for na's, no Na's
+#colSums(is.na(white_high_qual))
+
+```
+
+```{r}
+#set a portion of data aside
+sample_white= sample.split(white_high_qual$quality, SplitRatio = 0.75)
+
+train_white= subset(white_high_qual, sample_white ==TRUE)
+test_white= subset(white_high_qual, sample_white ==FALSE)
+
+dim(train_white)
+dim(test_white)
+
+rf_white <- randomForest( quality ~ fixed.acidity+volatile.acidity+ citric.acid+ residual.sugar+ chlorides+ free.sulfur.dioxide + total.sulfur.dioxide + pH +sulphates + alcohol, data= train_white, importance= T)
+
+rf_white
+
+```
+
+
+```{r}
+#pred_white= predict(rf_white, newdata= test_white)
+```
+
+
+Now that we have importance predicted, we also want to know which parameters are most important to predict the quality of the wine. For white wine we can see that the best indicators for quality are the alcohol level, volatile acidity 
+
+```{r}
+#open jpeg file
+jpeg("white_features.jpg", width=700, height=350)
+
+#create plot
+varImpPlot(rf_white, main="Features for predicting good white wine")
+
+#close file
+dev.off()
+
+
+varImpPlot(rf_white, main="Features for predicting good white wine")
+
+```
+
+For white wine we can see that the most important characteristics are alcohol content, volatile acidity, the amount of sulfur (both free and total), and the amount of chlorides.Low chloride levels are preferred, increases in free sulfur dioxide are indicative of better ratings but low levels of total sulfur dioxide were preferred. 
+
+
+Generally for white wine higher alcohol content was indicative of higher scores, low volatile acidity, increases taste with higher free sulfur dioxide levels, but lower ratings with increase in total sulfur dioxides. Wines with low chloride levels were preferred.
+
+```{r}
+pred_white= predict(rf_white, test_white[-12])
+cm_white= table(test_white[,12], pred_white)
+
+cm_white
+
+```
+We can see that using random forest for prediction of good quality white wine based on chemical composition and properties of wine is good. It correctly predicts 741/ 814 wines as good quality, but is less adept at predicting bad quality from chemical composition. It is worth noting that this is for this particular data set of wines and may therefore not be generalizable for all wines as training and testing was done on data from the same data set (even though it was for different wines) and thus is to be applied generally with caution.
+
+To improve our analysis in the future we can look whether the trend holds across different data sets.
+
